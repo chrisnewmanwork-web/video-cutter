@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Cutter - All-in-One</title>
+    <title>Video Cutter - Works Everywhere</title>
     <style>
         * {
             margin: 0;
@@ -32,6 +32,16 @@
             margin-bottom: 30px;
             text-align: center;
             font-size: 2.5em;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            color: #0d47a1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
         }
 
         .upload-section {
@@ -95,7 +105,6 @@
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 15px;
-            position: relative;
         }
 
         .time-inputs {
@@ -122,7 +131,6 @@
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 1em;
-            transition: border-color 0.3s ease;
         }
 
         input[type="number"]:focus {
@@ -147,7 +155,6 @@
 
         .btn-remove:hover {
             background: #e84118;
-            transform: translateY(-2px);
         }
 
         .btn-add {
@@ -177,7 +184,6 @@
         .btn-process:disabled {
             background: #ccc;
             cursor: not-allowed;
-            transform: none;
         }
 
         .info-text {
@@ -185,17 +191,6 @@
             font-size: 0.9em;
             margin-top: 10px;
             text-align: center;
-        }
-
-        .warning-box {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            color: #856404;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            text-align: center;
-            font-size: 0.9em;
         }
 
         .progress {
@@ -208,26 +203,6 @@
             color: #555;
             font-weight: 600;
             margin-bottom: 10px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 30px;
-            background: #f0f0f0;
-            border-radius: 15px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            transition: width 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
         }
 
         .output-section {
@@ -267,32 +242,16 @@
         .helper-btn:hover {
             background: #e0e0e0;
         }
-
-        .deployment-note {
-            background: #e3f2fd;
-            border: 2px solid #2196f3;
-            color: #0d47a1;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        .deployment-note strong {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 1.1em;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎬 Video Cutter</h1>
 
-        <div class="deployment-note">
-            <strong>📌 Important for GitHub Pages Deployment</strong>
-            This single-file app works best when deployed to Netlify, Vercel, or Cloudflare Pages.
-            <br>For GitHub Pages, you'll need to use the multi-file version with self-hosted libraries.
+        <div class="info-box">
+            <strong>✨ Simple Video Cutter - Works Everywhere!</strong><br>
+            All processing happens in your browser. No uploads, completely private.<br>
+            Output format: WebM (compatible with all modern browsers)
         </div>
         
         <div class="upload-section">
@@ -316,48 +275,25 @@
             <div id="timeRanges"></div>
             <button class="btn btn-add" onclick="addTimeRange()">+ Add Time Range</button>
             
-            <div class="warning-box">
-                ⚠️ Note: This uses FFmpeg.wasm which requires Cross-Origin headers. 
-                Works perfectly on Netlify/Vercel. For GitHub Pages, use the self-hosted version.
-            </div>
-            
             <button class="btn btn-process" id="processBtn" onclick="processVideo()">Cut Video</button>
-            <p class="info-text">Enter times in seconds. Example: Start: 5, End: 15 keeps seconds 5-15.</p>
+            <p class="info-text">Enter times in seconds. Output will be WebM format (plays in all modern browsers).</p>
         </div>
 
         <div class="progress" id="progress">
             <p class="progress-text" id="progressText">Processing video...</p>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill">0%</div>
-            </div>
         </div>
 
         <div class="output-section" id="outputSection">
             <h2 style="margin-bottom: 15px; color: #333;">✅ Video Ready!</h2>
             <video id="outputVideo" controls style="margin-bottom: 15px;"></video>
-            <button class="btn download-btn" onclick="downloadVideo()">⬇️ Download Cut Video (MP4)</button>
+            <button class="btn download-btn" onclick="downloadVideo()">⬇️ Download Cut Video</button>
         </div>
     </div>
 
-    <!-- Load FFmpeg from CDN -->
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js" crossorigin="anonymous"></script>
-    
     <script>
         let videoFile = null;
         let outputBlob = null;
         let videoDuration = 0;
-        let ffmpeg = null;
-        let ffmpegLoaded = false;
-
-        // Check if FFmpeg loaded
-        if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
-            console.error('FFmpeg libraries failed to load');
-            alert('Error: Could not load video processing libraries. This may be due to browser restrictions. Try deploying to Netlify or use the self-hosted version for GitHub Pages.');
-        }
-
-        const { FFmpeg } = FFmpegWASM || {};
-        const { fetchFile, toBlobURL } = FFmpegUtil || {};
 
         document.getElementById('videoInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -452,40 +388,6 @@
             return ranges;
         }
 
-        async function loadFFmpeg() {
-            if (ffmpegLoaded) return;
-
-            if (!FFmpeg || !fetchFile || !toBlobURL) {
-                throw new Error('FFmpeg libraries not loaded. Please refresh the page or use a different hosting platform.');
-            }
-
-            ffmpeg = new FFmpeg();
-            
-            ffmpeg.on('log', ({ message }) => {
-                console.log(message);
-            });
-
-            ffmpeg.on('progress', ({ progress }) => {
-                const percent = Math.round(progress * 100);
-                if (percent > 0 && percent < 100) {
-                    document.getElementById('progressFill').style.width = percent + '%';
-                    document.getElementById('progressFill').textContent = percent + '%';
-                }
-            });
-
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-            
-            try {
-                await ffmpeg.load({
-                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                });
-                ffmpegLoaded = true;
-            } catch (error) {
-                throw new Error('Failed to load FFmpeg. This page requires special server headers. Please deploy to Netlify, Vercel, or use the self-hosted GitHub Pages version.');
-            }
-        }
-
         async function processVideo() {
             if (!videoFile) {
                 alert('Please upload a video first!');
@@ -497,104 +399,104 @@
                 alert('Please add at least one valid time range!');
                 return;
             }
-
+            
             try {
                 document.getElementById('processBtn').disabled = true;
                 document.getElementById('progress').style.display = 'block';
-                document.getElementById('progressFill').style.width = '0%';
-                document.getElementById('progressFill').textContent = 'Loading FFmpeg...';
-                document.getElementById('progressText').textContent = 'Loading FFmpeg...';
+                document.getElementById('progressText').textContent = 'Preparing to cut video...';
 
-                if (!ffmpegLoaded) {
-                    await loadFFmpeg();
-                }
+                // Create a simple extraction using MediaRecorder
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(videoFile);
+                video.muted = false;
+                
+                await new Promise(resolve => video.onloadedmetadata = resolve);
 
-                document.getElementById('progressText').textContent = 'Processing video...';
-                document.getElementById('progressFill').style.width = '10%';
-                document.getElementById('progressFill').textContent = '10%';
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                const ctx = canvas.getContext('2d');
 
-                const inputFileName = 'input.mp4';
-                await ffmpeg.writeFile(inputFileName, await fetchFile(videoFile));
+                const stream = canvas.captureStream(30);
+                
+                // Add audio
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaElementSource(video);
+                const dest = audioContext.createMediaStreamDestination();
+                source.connect(dest);
+                
+                stream.addTrack(dest.stream.getAudioTracks()[0]);
 
-                const segmentFiles = [];
+                const recorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm;codecs=vp9,opus',
+                    videoBitsPerSecond: 5000000
+                });
+
+                const chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+
+                recorder.start();
+                
+                // Process each range
                 for (let i = 0; i < ranges.length; i++) {
                     const range = ranges[i];
-                    const duration = range.end - range.start;
-                    const outputName = `segment${i}.mp4`;
                     
                     document.getElementById('progressText').textContent = 
-                        `Cutting segment ${i + 1} of ${ranges.length}...`;
+                        `Recording segment ${i + 1} of ${ranges.length}...`;
                     
-                    await ffmpeg.exec([
-                        '-i', inputFileName,
-                        '-ss', range.start.toString(),
-                        '-t', duration.toString(),
-                        '-c', 'copy',
-                        '-avoid_negative_ts', '1',
-                        outputName
-                    ]);
+                    video.currentTime = range.start;
+                    await new Promise(resolve => video.onseeked = resolve);
                     
-                    segmentFiles.push(outputName);
+                    await video.play();
                     
-                    const progress = 10 + ((i + 1) / ranges.length) * 60;
-                    document.getElementById('progressFill').style.width = progress + '%';
-                    document.getElementById('progressFill').textContent = Math.round(progress) + '%';
+                    const duration = (range.end - range.start) * 1000;
+                    const startTime = Date.now();
+                    
+                    await new Promise(resolve => {
+                        const draw = () => {
+                            const elapsed = Date.now() - startTime;
+                            if (elapsed >= duration || video.currentTime >= range.end) {
+                                video.pause();
+                                resolve();
+                                return;
+                            }
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            requestAnimationFrame(draw);
+                        };
+                        draw();
+                    });
                 }
 
-                let finalOutput = 'output.mp4';
+                recorder.stop();
+                
+                document.getElementById('progressText').textContent = 'Finalizing video...';
+                
+                await new Promise(resolve => {
+                    recorder.onstop = () => {
+                        outputBlob = new Blob(chunks, { type: 'video/webm' });
+                        resolve();
+                    };
+                });
 
-                if (segmentFiles.length === 1) {
-                    finalOutput = segmentFiles[0];
-                } else {
-                    document.getElementById('progressText').textContent = 'Merging segments...';
-                    
-                    const concatList = segmentFiles.map(f => `file '${f}'`).join('\n');
-                    await ffmpeg.writeFile('concat.txt', new TextEncoder().encode(concatList));
-
-                    await ffmpeg.exec([
-                        '-f', 'concat',
-                        '-safe', '0',
-                        '-i', 'concat.txt',
-                        '-c', 'copy',
-                        finalOutput
-                    ]);
-                }
-
-                document.getElementById('progressFill').style.width = '90%';
-                document.getElementById('progressFill').textContent = '90%';
-                document.getElementById('progressText').textContent = 'Preparing download...';
-
-                const data = await ffmpeg.readFile(finalOutput);
-                outputBlob = new Blob([data.buffer], { type: 'video/mp4' });
-
-                document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('progressFill').textContent = '100%';
-                document.getElementById('progressText').textContent = 'Complete!';
+                audioContext.close();
 
                 const outputURL = URL.createObjectURL(outputBlob);
                 document.getElementById('outputVideo').src = outputURL;
                 document.getElementById('outputSection').style.display = 'block';
+                document.getElementById('progressText').textContent = 'Complete!';
 
                 setTimeout(() => {
                     document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
                 }, 100);
 
             } catch (error) {
-                console.error('Error processing video:', error);
-                let errorMsg = 'Error processing video: ' + error.message;
-                
-                if (error.message.includes('Worker') || error.message.includes('CORS') || error.message.includes('headers')) {
-                    errorMsg += '\n\n🔧 Solution: Deploy this page to Netlify, Vercel, or Cloudflare Pages.\nOr use the self-hosted version for GitHub Pages.';
-                }
-                
-                alert(errorMsg);
+                console.error('Error:', error);
+                alert('Error processing video: ' + error.message);
             } finally {
                 document.getElementById('processBtn').disabled = false;
                 setTimeout(() => {
-                    if (outputBlob) {
-                        document.getElementById('progress').style.display = 'none';
-                    }
-                }, 2000);
+                    document.getElementById('progress').style.display = 'none';
+                }, 1000);
             }
         }
 
@@ -604,7 +506,7 @@
             const url = URL.createObjectURL(outputBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'cut_video.mp4';
+            a.download = 'cut_video.webm';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
