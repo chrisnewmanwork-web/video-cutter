@@ -261,6 +261,17 @@
             </div>
         </div>
 
+        <div class="upload-section" style="margin-top: 20px;">
+            <div class="upload-box" onclick="document.getElementById('audioInput').click()" style="border-color: #10ac84;">
+                <input type="file" id="audioInput" accept="audio/*">
+                <div class="upload-label" style="color: #10ac84;">🎵 Optional: Upload audio to replace video sound</div>
+            </div>
+            <div id="audioInfo" style="text-align: center; margin-top: 10px; color: #10ac84; font-weight: 600; display: none;">
+                <span id="audioFileName"></span>
+                <button class="btn" style="margin-left: 10px; padding: 6px 12px; font-size: 0.85em; background: #ff4757; color: white;" onclick="clearAudio()">Remove Audio</button>
+            </div>
+        </div>
+
         <div class="video-preview" id="videoPreview">
             <video id="videoPlayer" controls></video>
             <div class="video-info" id="videoInfo"></div>
@@ -276,7 +287,7 @@
             <button class="btn btn-add" onclick="addTimeRange()">+ Add Time Range</button>
             
             <button class="btn btn-process" id="processBtn" onclick="processVideo()">Cut Video</button>
-            <p class="info-text">Enter times in seconds. Output will be WebM format (plays in all modern browsers).</p>
+            <p class="info-text">Enter times in seconds. Optional: Upload audio to replace the video's sound track.</p>
         </div>
 
         <div class="progress" id="progress">
@@ -292,6 +303,7 @@
 
     <script>
         let videoFile = null;
+        let audioFile = null;
         let outputBlob = null;
         let videoDuration = 0;
 
@@ -318,6 +330,21 @@
                 }
             }
         });
+
+        document.getElementById('audioInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                audioFile = file;
+                document.getElementById('audioFileName').textContent = `✓ Audio loaded: ${file.name}`;
+                document.getElementById('audioInfo').style.display = 'block';
+            }
+        });
+
+        function clearAudio() {
+            audioFile = null;
+            document.getElementById('audioInput').value = '';
+            document.getElementById('audioInfo').style.display = 'none';
+        }
 
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -419,13 +446,42 @@
 
                 const stream = canvas.captureStream(30);
                 
-                // Add audio
-                const audioContext = new AudioContext();
-                const source = audioContext.createMediaElementSource(video);
-                const dest = audioContext.createMediaStreamDestination();
-                source.connect(dest);
-                
-                stream.addTrack(dest.stream.getAudioTracks()[0]);
+                // Add audio - either from uploaded file or original video
+                let audioTrack;
+                if (audioFile) {
+                    // Use uploaded audio file
+                    document.getElementById('progressText').textContent = 'Loading custom audio...';
+                    
+                    const audioElement = document.createElement('audio');
+                    audioElement.src = URL.createObjectURL(audioFile);
+                    await new Promise(resolve => audioElement.onloadedmetadata = resolve);
+                    
+                    const audioContext = new AudioContext();
+                    const audioSource = audioContext.createMediaElementSource(audioElement);
+                    const audioDest = audioContext.createMediaStreamDestination();
+                    audioSource.connect(audioDest);
+                    
+                    audioTrack = audioDest.stream.getAudioTracks()[0];
+                    stream.addTrack(audioTrack);
+                    
+                    // Start playing the audio
+                    audioElement.play();
+                    
+                    // Store references for cleanup
+                    window.currentAudioContext = audioContext;
+                    window.currentAudioElement = audioElement;
+                } else {
+                    // Use original video audio
+                    const audioContext = new AudioContext();
+                    const source = audioContext.createMediaElementSource(video);
+                    const dest = audioContext.createMediaStreamDestination();
+                    source.connect(dest);
+                    
+                    audioTrack = dest.stream.getAudioTracks()[0];
+                    stream.addTrack(audioTrack);
+                    
+                    window.currentAudioContext = audioContext;
+                }
 
                 const recorder = new MediaRecorder(stream, {
                     mimeType: 'video/webm;codecs=vp9,opus',
@@ -478,7 +534,13 @@
                     };
                 });
 
-                audioContext.close();
+                if (window.currentAudioContext) {
+                    window.currentAudioContext.close();
+                }
+                if (window.currentAudioElement) {
+                    window.currentAudioElement.pause();
+                    window.currentAudioElement.src = '';
+                }
 
                 const outputURL = URL.createObjectURL(outputBlob);
                 document.getElementById('outputVideo').src = outputURL;
