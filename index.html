@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Cutter - MP4 Output</title>
+    <title>Video Cutter - All-in-One</title>
     <style>
         * {
             margin: 0;
@@ -187,14 +187,15 @@
             text-align: center;
         }
 
-        .success-box {
-            background: #d4edda;
-            border: 2px solid #28a745;
-            color: #155724;
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
             padding: 15px;
             border-radius: 8px;
             margin: 20px 0;
             text-align: center;
+            font-size: 0.9em;
         }
 
         .progress {
@@ -266,11 +267,33 @@
         .helper-btn:hover {
             background: #e0e0e0;
         }
+
+        .deployment-note {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            color: #0d47a1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .deployment-note strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎬 Video Cutter</h1>
+
+        <div class="deployment-note">
+            <strong>📌 Important for GitHub Pages Deployment</strong>
+            This single-file app works best when deployed to Netlify, Vercel, or Cloudflare Pages.
+            <br>For GitHub Pages, you'll need to use the multi-file version with self-hosted libraries.
+        </div>
         
         <div class="upload-section">
             <div class="upload-box" onclick="document.getElementById('videoInput').click()">
@@ -293,9 +316,9 @@
             <div id="timeRanges"></div>
             <button class="btn btn-add" onclick="addTimeRange()">+ Add Time Range</button>
             
-            <div class="success-box">
-                ✅ Self-hosted FFmpeg - no external CDN dependencies. Outputs MP4 format.
-                <br>First use downloads ~30MB of FFmpeg files (one-time, cached by browser).
+            <div class="warning-box">
+                ⚠️ Note: This uses FFmpeg.wasm which requires Cross-Origin headers. 
+                Works perfectly on Netlify/Vercel. For GitHub Pages, use the self-hosted version.
             </div>
             
             <button class="btn btn-process" id="processBtn" onclick="processVideo()">Cut Video</button>
@@ -316,18 +339,25 @@
         </div>
     </div>
 
-    <!-- Load FFmpeg libraries from local files -->
-    <script src="./libs/ffmpeg.js"></script>
-    <script src="./libs/util.js"></script>
+    <!-- Load FFmpeg from CDN -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js" crossorigin="anonymous"></script>
+    
     <script>
-        const { FFmpeg } = FFmpegWASM;
-        const { fetchFile, toBlobURL } = FFmpegUtil;
-
         let videoFile = null;
         let outputBlob = null;
         let videoDuration = 0;
         let ffmpeg = null;
         let ffmpegLoaded = false;
+
+        // Check if FFmpeg loaded
+        if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
+            console.error('FFmpeg libraries failed to load');
+            alert('Error: Could not load video processing libraries. This may be due to browser restrictions. Try deploying to Netlify or use the self-hosted version for GitHub Pages.');
+        }
+
+        const { FFmpeg } = FFmpegWASM || {};
+        const { fetchFile, toBlobURL } = FFmpegUtil || {};
 
         document.getElementById('videoInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -425,6 +455,10 @@
         async function loadFFmpeg() {
             if (ffmpegLoaded) return;
 
+            if (!FFmpeg || !fetchFile || !toBlobURL) {
+                throw new Error('FFmpeg libraries not loaded. Please refresh the page or use a different hosting platform.');
+            }
+
             ffmpeg = new FFmpeg();
             
             ffmpeg.on('log', ({ message }) => {
@@ -439,15 +473,17 @@
                 }
             });
 
-            // Load core files from local libs folder
-            const baseURL = './libs/core';
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
             
-            await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
-
-            ffmpegLoaded = true;
+            try {
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+                ffmpegLoaded = true;
+            } catch (error) {
+                throw new Error('Failed to load FFmpeg. This page requires special server headers. Please deploy to Netlify, Vercel, or use the self-hosted GitHub Pages version.');
+            }
         }
 
         async function processVideo() {
@@ -545,7 +581,13 @@
 
             } catch (error) {
                 console.error('Error processing video:', error);
-                alert('Error processing video: ' + error.message + '\n\nCheck the browser console for details.');
+                let errorMsg = 'Error processing video: ' + error.message;
+                
+                if (error.message.includes('Worker') || error.message.includes('CORS') || error.message.includes('headers')) {
+                    errorMsg += '\n\n🔧 Solution: Deploy this page to Netlify, Vercel, or Cloudflare Pages.\nOr use the self-hosted version for GitHub Pages.';
+                }
+                
+                alert(errorMsg);
             } finally {
                 document.getElementById('processBtn').disabled = false;
                 setTimeout(() => {
